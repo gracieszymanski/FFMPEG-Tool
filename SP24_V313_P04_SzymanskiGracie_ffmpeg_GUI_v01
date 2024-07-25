@@ -1,0 +1,305 @@
+#################################
+# SP24_V313_P04_SzymanskiGracie_ffmpeg_GUI_v01.py
+# Creates a GUI for ffmpeg files that convert stills to an mp4 and compress mp4s
+# by Gracie Szymanski, VSFX-313
+# Created: 4/30/24
+#################################
+
+import sys
+import SP24_V313_P04_SzymanskiGracie_stills2mp4_v02 as sf
+import SP24_V313_P04_SzymanskiGracie_compressMP4_v02 as cm
+from PySide2.QtWidgets import QApplication, QMainWindow, QFileDialog
+from PySide2.QtUiTools import QUiLoader
+
+#Global variables
+UI_MWPATH = r"C:\Users\aspen\OneDrive\Documents\P04_GUIonFFMPEG\SP24_V313_P04_SzymanskiGracie_ffmpeg_GUI_v01\SP24_V313_P04_SzymanskiGracie_ffmpeg_GUI_v01.ui"
+loader = QUiLoader()
+
+
+#Main Window Class
+class MainWindow(QMainWindow):
+
+    def __init__(self):
+
+        super().__init__()
+        gui = loader.load(UI_MWPATH, None) #loads in ui file with main window design
+
+        #####TAB ONE#####
+
+        #FPS/speed widgets#
+        self.speed = gui.stills_FPS_spinBox.cleanText() 
+        #signal to update speed function
+        gui.stills_FPS_spinBox.valueChanged.connect(self.update_speed) 
+
+
+        #stills size widgets#
+        #sets default size values
+        self.stills_size_one = gui.stills_size_spinOne.value()
+        self.stills_size_two = gui.stills_size_spinTwo.value()
+
+        #defines widgets in the gui as part of the class so that the variables can be used in functions below
+        self.stills_size_label = gui.stills_size_label
+        self.stills_size_spinOne = gui.stills_size_spinOne
+        self.stills_size_spinTwo = gui.stills_size_spinTwo
+
+        #sets the size option widgets to be invisible by default for better user interface
+        gui.stills_size_label.setVisible(False)
+        gui.stills_size_spinOne.setVisible(False)
+        gui.stills_size_spinTwo.setVisible(False)
+
+        #signals to make size options visible function
+        gui.stills_size_option_comboBox.currentIndexChanged.connect(self.stills_make_size_visible)
+
+        #signals to size update functions
+        gui.stills_size_spinOne.valueChanged.connect(self.stills_update_size_one)
+        gui.stills_size_spinTwo.valueChanged.connect(self.stills_update_size_two)
+
+
+        #stills folder browser widgets#
+        #defines widgets in the gui as part of the class self so that the variables can be used in functions below
+        self.stills_selFolder_label = gui.stills_selFolder_label
+        #defines default stills path variable
+        self.stills_path = 0
+        #signal to open folder function
+        gui.stills_folder_button.clicked.connect(self.stills_open_folder)
+
+
+        #output folder browser widgets#
+        #defines widgets in the gui as part of the class self so that the variables can be used in functions below
+        self.stills_selOutFolder_label = gui.stills_selOutFolder_label
+        #defines default output path variable
+        self.stills_output_path = 0
+        #signal to open folder function
+        gui.stills_output_folder_button.clicked.connect(self.stills_open_folder_two)
+
+
+        #input name#
+        #defines default input name
+        self.stills_input_name = gui.stills_input_name_lineEdit.text()
+        #signals to update mp4 name function
+        gui.stills_input_name_lineEdit.textChanged.connect(self.stills_update_input_name)
+
+
+        #run button#
+        #defines widgets in the gui as part of the class self so that the variables can be used in functions below
+        self.stills_run_button = gui.stills_run_button
+        #signals to run stills to mp4
+        gui.stills_run_button.clicked.connect(self.run_stillsffmpeg_command)
+
+        #####TAB TWO#####
+
+        #compression amount widgets#
+        #defines default compression amount
+        self.comp_amt = gui.compress_amount_spinBox.text()
+        #signals to update compression amount function
+        gui.compress_amount_spinBox.valueChanged.connect(self.update_comp_amt)
+
+
+        #compress size widgets#
+        #sets default size values
+        self.compress_size_one = gui.compress_size_spinOne.value()
+        self.compress_size_two = gui.compress_size_spinOne.value()
+
+        #defines widgets in the gui as part of the class so that the variables can be used in functions below
+        self.compress_size_label = gui.compress_size_label
+        self.compress_size_spinOne = gui.compress_size_spinOne
+        self.compress_size_spinTwo = gui.compress_size_spinTwo
+
+        #sets the size option widgets to be invisible by default for better user interface
+        gui.compress_size_label.setVisible(False)
+        gui.compress_size_spinOne.setVisible(False)
+        gui.compress_size_spinTwo.setVisible(False)
+
+        #signal to make the size options visible function
+        gui.compress_size_option_comboBox.currentIndexChanged.connect(self.compress_make_size_visible)
+
+        #signal to update size inputs function
+        gui.compress_size_spinOne.valueChanged.connect(self.compress_update_size_one)
+        gui.compress_size_spinTwo.valueChanged.connect(self.compress_update_size_two)
+
+
+        #mp4 folder browse widgets#
+        #defines widgets in the gui as part of the class so that the variables can be used in functions below
+        self.compress_selFolder_label = gui.compress_selFolder_label
+        #defines default mp4 folder path
+        self.compress_path = 0
+        #signals to open folder function
+        gui.compress_folder_button.clicked.connect(self.compress_open_folder)
+
+
+        #output folder browse widgets#
+        self.compress_selOutFolder_label = gui.compress_selOutFolder_label
+        #defines default output folder
+        self.compress_output_path = 0
+        #signals to open folder function
+        gui.compress_output_folder_button.clicked.connect(self.compress_open_folder_two)
+
+
+        #run button#
+        #defines widgets in the gui as part of the class self so that the variables can be used in functions below
+        self.compress_run_button = gui.compress_run_button
+        #signals to run compression function
+        gui.compress_run_button.clicked.connect(self.run_compressMP4_command)
+
+        self.setCentralWidget(gui)
+
+    #SLOTS IN MAIN WINDOW CLASS#
+
+    #A function that will enable the run button. Allows for run button to be disabled unless user actually inputs the file paths to reduce user error.
+    def enable_run(self):
+
+        #checks if both paths for the stills are picked, then enables run button
+        if self.stills_path and self.stills_output_path != 0:
+            self.stills_run_button.setEnabled(True)
+
+        #checks if both paths for compress are picked, then enables the run button
+        if self.compress_path and self.compress_output_path != 0:
+            self.compress_run_button.setEnabled(True)
+
+    ####SLOTS FOR TAB ONE#####
+
+    #updates the speed for the stills
+    def update_speed(self, cleanText):
+
+        self.speed = cleanText
+
+
+    #makes size option input widgets visible
+    def stills_make_size_visible(self, index):
+
+        if index == 1: #if user clicks back to the orignial no answer, the widgets dissapear
+            self.stills_size_label.setVisible(True)
+            self.stills_size_spinOne.setVisible(True)
+            self.stills_size_spinTwo.setVisible(True)
+
+        else:
+            self.stills_size_label.setVisible(False)
+            self.stills_size_spinOne.setVisible(False)
+            self.stills_size_spinTwo.setVisible(False)
+
+
+    #updates width value for stills
+    def stills_update_size_one(self, value):
+
+        self.stills_size_one = value
+
+
+    #updates height value for stills
+    def stills_update_size_two(self, value):
+
+        self.stills_size_two = value
+
+
+    #updates the file path for the stills folder
+    def stills_open_folder(self):
+        
+        file_dialog = QFileDialog(self)
+        file_dialog.setFileMode(QFileDialog.Directory)
+
+        if file_dialog.exec():
+            path = file_dialog.selectedFiles()
+            if path:
+                self.stills_selFolder_label.setText(path[0])
+                self.stills_path = path[0]
+
+        self.enable_run() #runs that initial function to check if the run button should be activated yet
+
+
+    #updates the file path for the output mp4
+    def stills_open_folder_two(self):
+
+        file_dialog = QFileDialog(self)
+        file_dialog.setFileMode(QFileDialog.Directory)
+
+        if file_dialog.exec():
+            path = file_dialog.selectedFiles()
+            if path:
+                self.stills_selOutFolder_label.setText(path[0])
+                self.stills_output_path = path[0]
+
+        self.enable_run() #runs that initial function to check if the run button should be activated yet
+
+
+    #updates the name of the outputed mp4
+    def stills_update_input_name(self, text):
+
+        self.stills_input_name = text
+    
+    #runs the ffmpeg command from the SP24_V313_P04_SzymanskiGracie_stills2mp4_v02.py file
+    def run_stillsffmpeg_command(self):
+
+        sf.main(self.stills_path, self.speed, self.stills_size_one, self.stills_size_two, self.stills_output_path, self.stills_input_name)
+
+    ####SLOTS FOR TAB TWO#####
+
+    #updates the compression amount
+    def update_comp_amt(self, text):
+
+        self.comp_amt = text
+
+
+    #makes size option input widgets visible 
+    def compress_make_size_visible(self, index):
+
+        if index == 1: #if user clicks back to the orignial no answer, the widgets dissapear
+            self.compress_size_label.setVisible(True)
+            self.compress_size_spinOne.setVisible(True)
+            self.compress_size_spinTwo.setVisible(True)
+        else:
+            self.compress_size_label.setVisible(False)
+            self.compress_size_spinOne.setVisible(False)
+            self.compress_size_spinTwo.setVisible(False)
+
+
+    #updates width value for compress
+    def compress_update_size_one(self, value):
+
+        self.compress_size_one = value
+
+
+    #updates height value for compress
+    def compress_update_size_two(self, value):
+
+        self.compress_size_two = value
+
+
+    #updates the file path for the compress folder
+    def compress_open_folder(self):
+        
+        file_dialog = QFileDialog(self)
+        file_dialog.setFileMode(QFileDialog.Directory)
+
+        if file_dialog.exec():
+            path = file_dialog.selectedFiles()
+            if path:
+                self.compress_selFolder_label.setText(path[0])
+                self.compress_path = path[0]
+
+        self.enable_run() #runs that initial function to check if the run button should be activated yet
+
+
+    #updates the file path for the output mp4s
+    def compress_open_folder_two(self):
+
+        file_dialog = QFileDialog(self)
+        file_dialog.setFileMode(QFileDialog.Directory)
+
+        if file_dialog.exec():
+            path = file_dialog.selectedFiles()
+            if path:
+                self.compress_selOutFolder_label.setText(path[0])
+                self.compress_output_path = path[0]
+
+        self.enable_run() #runs that initial function to check if the run button should be activated yet
+
+
+    #runs the ffmpeg command from the SP24_V313_P04_SzymanskiGracie_compressMP4_v02.py file
+    def run_compressMP4_command(self):
+        cm.main(self.compress_path, self.comp_amt, self.compress_size_one, self.compress_size_two, self.compress_output_path)
+
+
+if __name__ == "__main__":
+    app = QApplication([])
+    mw = MainWindow()
+    mw.show()
+    sys.exit(app.exec_())
