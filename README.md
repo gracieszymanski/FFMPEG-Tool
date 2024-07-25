@@ -25,6 +25,5 @@
 # widgets appear.
 #  ★ This way, size inputs are not cluttering up the GUI if the user does not choose to resize the file.
 #  ★ The run button is disabled until the user gives the GUI the input and 
-# output folders.
-#  ★ This reduces user error a bit. 
+# output folders.This reduces user error a bit. 
 #  ★ Once users input two files then the run button is enabled
